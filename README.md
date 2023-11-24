@@ -121,3 +121,35 @@ mlflow.set_experiment("nyc-taxi")
 with mlflow.start_run():
     # your trainer code
 ```
+
+### Python Code Usage
+
+1. Make Minio Access Keys on [Minio](http://localhost:9001/access-keys), then save access key id and secret access key.
+
+2. Put environment in `.env` file
+
+```
+MLFLOW_TRACKING_URI=http://localhost:5000
+MLFLOW_S3_ENDPOINT_URL=http://localhost:9000
+AWS_ACCESS_KEY_ID=2vSrPs21nZYaUQvovgRL
+AWS_SECRET_ACCESS_KEY=yCqF29KU1qbykEnsceWMDRNvPelgGAVBmyD6PeU5
+```
+
+3. Import `.env` file in python code and setup experiment name
+
+``` python
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# you can also use this method for set tracking uri, instead using environment
+mlflow.set_tracking_uri("http://localhost:5000/")
+mlflow.set_experiment("nyc-taxi")
+```
+
+4. Use with statement in trainer code
+
+``` python
+with mlflow.start_run():
+    # your trainer code
+```
