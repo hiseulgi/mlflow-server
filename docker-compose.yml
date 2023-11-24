@@ -10,8 +10,8 @@ services:
             - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
         command: server /data --console-address ':${MINIO_CONSOLE_PORT}' --address ':${MINIO_PORT}'
         environment:
-            - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
-            - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY}
+            - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+            - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
         volumes:
             - minio_data:/data
 
@@ -25,7 +25,7 @@ services:
         entrypoint: >
             /bin/sh -c "
             /tmp/wait-for-it.sh minio:${MINIO_PORT} &&
-            /usr/bin/mc alias set minio http://minio:${MINIO_PORT} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
+            /usr/bin/mc alias set minio http://minio:${MINIO_PORT} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
             /usr/bin/mc mb minio/mlflow;
             exit 0;
             "

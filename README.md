@@ -81,3 +81,43 @@ The MLflow tracking server is composed of 4 docker containers:
     ```bash
     curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
     ```
+
+## Personal Note
+
+>This note is based on changes to the `.env` and `docker-compose.yml` files. The changes to the Minio Access Key must first be made in the Minio Console.
+
+### Jupyter Notebook Usage
+
+1. Make Minio Access Keys on [Minio](http://localhost:9001/access-keys), then save access key id and secret access key.
+
+2. Import environment on notebook
+
+``` python
+%env MLFLOW_TRACKING_URI=http://localhost:5000
+%env MLFLOW_S3_ENDPOINT_URL=http://localhost:9000
+%env AWS_ACCESS_KEY_ID=2vSrPs21nZYaUQvovgRL
+%env AWS_SECRET_ACCESS_KEY=yCqF29KU1qbykEnsceWMDRNvPelgGAVBmyD6PeU5
+```
+
+3. Check it again and setup experiment name
+
+``` python
+import os
+import mlflow
+
+assert "MLFLOW_TRACKING_URI" in os.environ
+assert "MLFLOW_S3_ENDPOINT_URL" in os.environ
+assert "AWS_ACCESS_KEY_ID" in os.environ
+assert "AWS_SECRET_ACCESS_KEY" in os.environ
+
+# you can also use this method for set tracking uri, instead using environment
+mlflow.set_tracking_uri("http://localhost:5000/")
+mlflow.set_experiment("nyc-taxi")
+```
+
+4. Use with statement in trainer code
+
+``` python
+with mlflow.start_run():
+    # your trainer code
+```
