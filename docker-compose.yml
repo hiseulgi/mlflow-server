@@ -1,67 +1,80 @@
-version: '3.7'
+version: "3.9"
 
 services:
     minio:
+        image: minio/minio:RELEASE.2023-11-20T22-40-07Z
         restart: always
-        image: minio/minio@sha256:b74e889fb9f95c36cfd821783d08aa523e61c5355ce1b81122ea63d28d828edf
-        container_name: mlflow_s3
         ports:
-            - "${MINIO_PORT}:${MINIO_PORT}"
-            - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
-        command: server /data --console-address ':${MINIO_CONSOLE_PORT}' --address ':${MINIO_PORT}'
+            - ${MINIO_PORT}:${MINIO_PORT}
+            - ${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}
         environment:
-            - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-            - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
         volumes:
             - minio_data:/data
+        command: server /data --console-address ":${MINIO_CONSOLE_PORT}" --address ":${MINIO_PORT}"
 
     mc:
-        image: minio/mc@sha256:7d9507c29a92701fcd0bca97ad74ad0df940a9d96715137f3e1fddc4236052c4
+        image: minio/mc:RELEASE.2023-11-20T16-30-59Z
         depends_on:
             - minio
-        container_name: mc
         env_file:
             - .env
-        entrypoint: >
-            /bin/sh -c "
-            /tmp/wait-for-it.sh minio:${MINIO_PORT} &&
-            /usr/bin/mc alias set minio http://minio:${MINIO_PORT} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
-            /usr/bin/mc mb minio/mlflow;
-            exit 0;
-            "
+        entrypoint: /bin/sh -c "/tmp/wait-for-it.sh minio:${MINIO_PORT} && /usr/bin/mc alias set minio http://minio:${MINIO_PORT} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} && /usr/bin/mc mb minio/mlflow && /usr/bin/mc mb minio/prefect; exit 0;"
         volumes:
             - ./wait-for-it.sh:/tmp/wait-for-it.sh
 
-    db:
-        restart: always
-        image: mysql/mysql-server@sha256:5b40d96b11333570143d98d3a74100fefadb9abb17b27a95dbc9ad33544ec142
-        container_name: mlflow_db
+    postgres:
+        image: postgres:15.2
+        restart: unless-stopped
         ports:
-            - "${MYSQL_PORT}:${MYSQL_PORT}"
+            - ${POSTGRES_PORT}:${POSTGRES_PORT}
         environment:
-            - MYSQL_DATABASE=${MYSQL_DATABASE}
-            - MYSQL_USER=${MYSQL_USER}
-            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-        volumes:
-            - dbdata:/var/lib/mysql
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_MULTIPLE_DATABASES: ${MLFLOW_DB},postgres:${PREFECT_DB},postgres
+        volumes: 
+            - postgres_db:/var/lib/postgresql/data
+            - ./postgres/multiple-db.sh:/docker-entrypoint-initdb.d/multiple-db.sh
 
-    web:
-        restart: always
+    mlflow_server:
         build: ./mlflow
         image: mlflow_server
-        container_name: mlflow_server
+        restart: always
         depends_on:
             - mc
-            - db
+            - postgres
         ports:
-            - "${MLFLOW_PORT}:${MLFLOW_PORT}"
+            - ${MLFLOW_PORT}:${MLFLOW_PORT}
         environment:
-            - MLFLOW_S3_ENDPOINT_URL=http://minio:${MINIO_PORT}
-            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-        command: mlflow server --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:${MYSQL_PORT}/${MYSQL_DATABASE} --default-artifact-root s3://mlflow/ --host 0.0.0.0
+            MLFLOW_S3_ENDPOINT_URL: http://minio:${MINIO_PORT}
+            AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+        command: mlflow server --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB} --default-artifact-root s3://mlflow/ --host 0.0.0.0
+
+    prefect_server:
+        image: prefecthq/prefect:2.14-python3.10
+        restart: always
+        volumes:
+            - prefect:/root/.prefect
+        entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "server", "start"]
+        environment:
+            PREFECT_UI_URL: http://127.0.0.1:${PREFECT_PORT}/api
+            PREFECT_API_URL: http://127.0.0.1:${PREFECT_PORT}/api
+            PREFECT_SERVER_API_HOST: 0.0.0.0
+            PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${PREFECT_DB}
+        ports:
+            - ${PREFECT_PORT}:${PREFECT_PORT}
+        depends_on:
+            - postgres
+
+    prefect_agent:
+        image: prefecthq/prefect:2.14-python3.10
+        entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "agent", "start", "-q", "default"]
+        environment:
+            PREFECT_API_URL: http://prefect_server:${PREFECT_PORT}/api
 
 volumes:
-    dbdata:
     minio_data:
+    postgres_db:
+    prefect:
