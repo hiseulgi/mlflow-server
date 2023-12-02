@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432 # sesuai nama service di docker-compose
+    database: test
+    user: postgres
+    secureJsonData:
+      password: postgres
+    jsonData:
+      sslmode: disables

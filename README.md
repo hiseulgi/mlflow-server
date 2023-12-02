@@ -86,7 +86,9 @@ The MLflow tracking server is composed of 4 docker containers:
 
 >This note is based on changes to the `.env` and `docker-compose.yml` files. The changes to the Minio Access Key must first be made in the Minio Console.
 
-### Jupyter Notebook Usage
+### MLFlow
+
+#### Jupyter Notebook Usage
 
 1. Make Minio Access Keys on [Minio](http://localhost:9001/access-keys), then save access key id and secret access key.
 
@@ -122,7 +124,7 @@ with mlflow.start_run():
     # your trainer code
 ```
 
-### Python Code Usage
+#### Python Code Usage
 
 1. Make Minio Access Keys on [Minio](http://localhost:9001/access-keys), then save access key id and secret access key.
 
@@ -153,3 +155,8 @@ mlflow.set_experiment("nyc-taxi")
 with mlflow.start_run():
     # your trainer code
 ```
+
+### Changelog
+
+* 2023-12-01 Add Adminer and Grafana service; Remove Prefect agent service (outdated)
+* 2023-11-28 Migrate to Postgres DB and add Prefetch server and agent service
